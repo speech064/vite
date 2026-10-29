@@ -153,6 +153,11 @@ async function loadProducts() {
   try { shop.products = await store.listProducts(); shop.error = ''; } catch (e) { shop.error = e.message; }
   renderShop();
 }
+// 내가 넣은 상품 사진 (public/images/goods/). 상품 id → 파일 경로. 여기에 없는 상품은 Pixabay 참고 사진을 써요.
+const LOCAL_GOODS = {
+  'dol-figure': '/images/goods/dol-figure.webp',
+  'tangerine-keyring': '/images/goods/tangerine-keyring.jpg'
+};
 function renderShop() {
   const g = $('#shopGrid');
   if (shop.error) { g.innerHTML = `<p class="loading">상품을 불러오지 못했어요. Supabase에서 <b>supabase/cart.sql</b>을 실행했는지 확인해 주세요. (${esc(shop.error)})</p>`; return; }
@@ -163,6 +168,12 @@ function renderShop() {
     </div>`).join('') : '<p class="loading">준비된 상품이 없어요.</p>';
   // 상품 사진: 각 굿즈의 주제(돌하르방·감귤 등)를 Pixabay에서 찾은 "참고 사진"이에요. (실제 굿즈 사진이 아니에요)
   shop.products.forEach(async p => {
+    const own = LOCAL_GOODS[p.id];
+    if (own) {
+      const th = $(`.product[data-pid="${CSS.escape(p.id)}"] .thumb`); if (!th) return;
+      th.innerHTML = `<img loading="lazy" decoding="async" src="${own}" alt="${esc(p.name)}"><span class="pbadge">${esc(p.emoji || '')}</span>`;
+      return;
+    }
     const icon = ICONS.find(i => i.id === p.icon_id); if (!icon) return;
     try {
       const r = await searchPhotos({ q: icon.q, perPage: 6, orientation: 'horizontal' });
