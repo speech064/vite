@@ -158,3 +158,6 @@ figcaption a{color:#fff}
 .carttotal b{color:var(--tang);font-size:24px}
 .cartact{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 @media (max-width:560px){#cartBtn{padding:4px 10px;font-size:13px}.nav nav a#shopLink{display:none}}
+.thumb{position:relative}
+.pbadge{position:absolute;left:10px;top:10px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.pcredit{position:absolute;left:0;right:0;bottom:0;padding:16px 10px 5px;font-size:11px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.6))}

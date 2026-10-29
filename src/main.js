@@ -157,10 +157,20 @@ function renderShop() {
   const g = $('#shopGrid');
   if (shop.error) { g.innerHTML = `<p class="loading">상품을 불러오지 못했어요. Supabase에서 <b>supabase/cart.sql</b>을 실행했는지 확인해 주세요. (${esc(shop.error)})</p>`; return; }
   g.innerHTML = shop.products.length ? shop.products.map(p => `
-    <div class="card product" style="--c:#0e7c86">
+    <div class="card product" data-pid="${esc(p.id)}" style="--c:#0e7c86">
       <span class="thumb"><span class="ph">${esc(p.emoji || '🛍️')}</span></span>
       <span class="body"><b>${esc(p.name)}</b><small>${esc(p.description || '')}</small><span class="price">${won(p.price)}</span><button class="btn primary addcart" data-pid="${esc(p.id)}">장바구니 담기</button></span>
     </div>`).join('') : '<p class="loading">준비된 상품이 없어요.</p>';
+  // 상품 사진: 각 굿즈의 주제(돌하르방·감귤 등)를 Pixabay에서 찾은 "참고 사진"이에요. (실제 굿즈 사진이 아니에요)
+  shop.products.forEach(async p => {
+    const icon = ICONS.find(i => i.id === p.icon_id); if (!icon) return;
+    try {
+      const r = await searchPhotos({ q: icon.q, perPage: 6, orientation: 'horizontal' });
+      const ph = r.hits[1] || r.hits[0]; if (!ph) return;
+      const th = $(`.product[data-pid="${CSS.escape(p.id)}"] .thumb`); if (!th) return;
+      th.innerHTML = `<img loading="lazy" decoding="async" src="${esc(safeUrl(ph.preview))}" alt="${esc(p.name)} 참고 사진 — ${esc(ph.tags)}"><span class="pbadge">${esc(p.emoji || '')}</span><span class="pcredit">참고 사진 · ${esc(ph.user)} / Pixabay</span>`;
+    } catch (e) { showNotice(e); }
+  });
 }
 $('#shopGrid').addEventListener('click', e => { const b = e.target.closest('.addcart'); if (b) addToCart(b.dataset.pid, b); });
 
