@@ -90,7 +90,7 @@ function heightKm(x, n) {
   let h = land < 0 ? Math.max(-0.6, land * 1.5) : Math.min(land * 4, 0.3);
   if (land > -0.02) {
     const r = Math.hypot(x - HX, n - HN), m = smooth(-0.02, 0.05, land);
-    let f = 1.95 * Math.exp(-Math.pow(r / 9, 1.7)) + 0.35 * Math.exp(-Math.pow(r / 20, 2)) - 0.12 * Math.exp(-Math.pow(r / 0.8, 2));
+    let f = 1.95 * Math.exp(-Math.pow(r / 7.5, 1.7)) + 0.35 * Math.exp(-Math.pow(r / 20, 2)) - 0.12 * Math.exp(-Math.pow(r / 0.8, 2));
     for (const b of BUMPS) { const dd = Math.hypot(x - b.x, n - b.n); if (dd < 4 * b.s) f += b.h * Math.exp(-Math.pow(dd / b.s, 2)); }
     h += f * m;
   }
@@ -111,6 +111,130 @@ function colorAt(h, out) {
   return out;
 }
 
+// ---- 특징을 살린 3D 소품 (감귤나무·해변 파라솔과 파도·항구의 배·풍력발전기·등대·돌하르방·백록담·숲) ----
+function buildProps(scene) {
+  const groups = {}, ticks = [];
+  const grp = k => groups[k] || (groups[k] = (() => { const g = new THREE.Group(); scene.add(g); return g; })());
+  const hy = (x, n) => Math.max(0, heightKm(x, n)) * EXAG;
+  const rnd = mulberry32(99), dummy = new THREE.Object3D();
+  const std = (color, extra = {}) => new THREE.MeshLambertMaterial({ color, ...extra });
+  const mesh = (geo, color, extra) => new THREE.Mesh(geo, std(color, extra));
+  const offshore = (x, n) => {                        // 바다 쪽 방향 (높이가 가장 낮은 쪽)
+    let best = 0, bh = Infinity;
+    for (let a = 0; a < 24; a++) { const t = a / 24 * Math.PI * 2, h = heightKm(x + Math.cos(t) * 2, n + Math.sin(t) * 2); if (h < bh) { bh = h; best = t; } }
+    return { dx: Math.cos(best), dn: Math.sin(best) };
+  };
+  const put = (o, x, n, dy = 0) => { o.position.set(x, hy(x, n) + dy, -n); return o; };
+  const LM = id => { const l = LANDMARKS.find(k => k.id === id); return toXN(l.lon, l.lat); };
+
+  // 1) 숲: 중산간 경사면에 작은 침엽수
+  { const geo = new THREE.ConeGeometry(0.07, 0.26, 5).translate(0, 0.13, 0), im = new THREE.InstancedMesh(geo, std(0xffffff), 700), c = new THREE.Color();
+    let k = 0;
+    for (let tries = 0; tries < 6000 && k < 700; tries++) {
+      const x = (rnd() * 2 - 1) * 38, n = (rnd() * 2 - 1) * 16, h = heightKm(x, n);
+      if (h < 0.14 || h > 1.15) continue;
+      const s = 0.7 + rnd() * 0.7; dummy.position.set(x, h * EXAG - 0.02, -n); dummy.scale.set(s, s * (0.8 + rnd() * 0.5), s); dummy.rotation.y = rnd() * 6; dummy.updateMatrix();
+      im.setMatrixAt(k, dummy.matrix); im.setColorAt(k, c.setHSL(0.3 + rnd() * 0.05, 0.45, 0.2 + rnd() * 0.1)); k++;
+    }
+    im.count = k; grp('forest').add(im); }
+
+  // 2) 감귤밭: 줄지어 선 감귤나무(초록 수관 + 주황 열매)
+  { const patches = [LM('seogwipo'), LM('namwon'), toXN(126.46, 33.292), toXN(126.64, 33.298), toXN(126.40, 33.315)];
+    const canopyG = new THREE.SphereGeometry(0.15, 8, 6), fruitG = new THREE.SphereGeometry(0.04, 6, 5);
+    const spots = [];
+    patches.forEach(([px, pn]) => { for (let i = -3; i <= 2; i++) for (let j = -3; j <= 2; j++) {
+      const x = px + i * 0.4 + (rnd() - 0.5) * 0.08, n = pn + j * 0.4 + (rnd() - 0.5) * 0.08, h = heightKm(x, n);
+      if (h > 0.04 && h < 0.75) spots.push([x, n]);
+    } });
+    const canopy = new THREE.InstancedMesh(canopyG, std(0x4f9a3a), spots.length), fruit = new THREE.InstancedMesh(fruitG, std(0xf08a00, { emissive: 0x4a2400 }), spots.length * 4);
+    spots.forEach(([x, n], i) => {
+      const y = hy(x, n);
+      dummy.position.set(x, y + 0.14, -n); dummy.scale.set(1, 0.85, 1); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); canopy.setMatrixAt(i, dummy.matrix);
+      for (let f = 0; f < 4; f++) { const a = rnd() * 6.28, e = 0.2 + rnd() * 0.9;
+        dummy.position.set(x + Math.cos(a) * 0.14 * Math.cos(e), y + 0.14 + 0.13 * Math.sin(e), -n + Math.sin(a) * 0.14 * Math.cos(e)); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); fruit.setMatrixAt(i * 4 + f, dummy.matrix); }
+    });
+    grp('orchard').add(canopy, fruit); }
+
+  // 3) 해변: 파라솔 + 밀려오는 파도
+  const waves = [];
+  const addRings = (cat, x, n, d) => { for (let i = 0; i < 3; i++) {
+    const m = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.0, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }));
+    m.position.set(x + d.dx * 1.1, 0.07, -(n + d.dn * 1.1)); m.userData = { i }; waves.push(m); grp(cat).add(m); } };
+  LANDMARKS.filter(l => l.cat === 'coast').forEach(l => {
+    const [x, n] = toXN(l.lon, l.lat), d = offshore(x, n);
+    addRings('coast', x, n, d);
+    if (l.id === 'udo' || l.id === 'suwolbong') return;                      // 절벽·섬에는 파라솔 없이 파도만
+    const colors = [0xe5484d, 0xf7c948, 0x3b82f6, 0xffffff, 0xff8a3d, 0x2fb67c];
+    for (let k = 0; k < 6; k++) {
+      const px = x - d.dx * (0.25 + rnd() * 0.5) + (rnd() - 0.5) * 0.9 * -d.dn, pn = n - d.dn * (0.25 + rnd() * 0.5) + (rnd() - 0.5) * 0.9 * d.dx;
+      const u = new THREE.Group();
+      const pole = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.3, 4), 0xdddddd); pole.position.y = 0.15;
+      const top = mesh(new THREE.ConeGeometry(0.2, 0.12, 8), colors[k]); top.position.y = 0.32;
+      u.add(pole, top); put(u, px, pn); u.rotation.z = (rnd() - 0.5) * 0.3; grp('coast').add(u);
+    }
+  });
+
+  // 4) 항·포구: 부두 + 떠 있는 배
+  const boats = [];
+  LANDMARKS.filter(l => l.cat === 'port' || l.id === 'udo').forEach(l => {
+    const [x, n] = toXN(l.lon, l.lat), d = offshore(x, n), g = l.cat === 'port' ? 'port' : 'coast';
+    if (l.cat === 'port') {
+      addRings('port', x, n, d);
+      const pier = mesh(new THREE.BoxGeometry(1.2, 0.06, 0.14), 0x8a6b4a);
+      pier.position.set(x + d.dx * 0.45, 0.1, -(n + d.dn * 0.45)); pier.rotation.y = -Math.atan2(-d.dn, d.dx); grp('port').add(pier);
+    }
+    for (let k = 0; k < (l.cat === 'port' ? 4 : 2); k++) {
+      const b = new THREE.Group(), hull = mesh(new THREE.BoxGeometry(0.5, 0.1, 0.18), k % 2 ? 0x3d5a80 : 0xe5484d), sail = mesh(new THREE.ConeGeometry(0.11, 0.32, 4), 0xffffff);
+      sail.position.set(-0.02, 0.2, 0); b.add(hull, sail);
+      const r = 1.1 + k * 0.45, a = Math.atan2(d.dn, d.dx) + (k - 1.5) * 0.35;
+      b.position.set(x + Math.cos(a) * r, 0.08, -(n + Math.sin(a) * r)); b.rotation.y = rnd() * 6; b.userData = { bx: b.position.x, bz: b.position.z, ph: rnd() * 6 };
+      boats.push(b); grp(g).add(b);
+    }
+  });
+
+  // 5) 풍력발전기 (행원) + 등대 (도두봉)
+  const rotors = [];
+  { const [x0, n0] = LM('haengwon'), d = offshore(x0, n0), tx = -d.dn, tn = d.dx;
+    for (let k = -3; k <= 2; k++) {
+      const x = x0 + tx * k * 0.9 - d.dx * 0.5, n = n0 + tn * k * 0.9 - d.dn * 0.5, t = new THREE.Group();
+      const tower = mesh(new THREE.CylinderGeometry(0.025, 0.045, 1.2, 8), 0xf2f2f2); tower.position.y = 0.6;
+      const rotor = new THREE.Group(); rotor.position.set(0, 1.22, 0.06);
+      for (let b = 0; b < 3; b++) { const bl = mesh(new THREE.BoxGeometry(0.05, 0.6, 0.012), 0xffffff); bl.geometry.translate(0, 0.3, 0); bl.rotation.z = b * 2.094; rotor.add(bl); }
+      const hub = mesh(new THREE.SphereGeometry(0.05, 8, 6), 0xdddddd); hub.position.set(0, 1.22, 0.04);
+      t.add(tower, rotor, hub); put(t, x, n); grp('wind').add(t); rotors.push(rotor);
+    }
+    const [lx, ln] = LM('dodu'), L = new THREE.Group();
+    const tw = mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.9, 10), 0xffffff); tw.position.y = 0.45;
+    const band = mesh(new THREE.CylinderGeometry(0.095, 0.105, 0.14, 10), 0xe5484d); band.position.y = 0.45;
+    const lamp = mesh(new THREE.SphereGeometry(0.09, 10, 8), 0xfff2a8, { emissive: 0xffd34d }); lamp.position.y = 1.0;
+    const cap = mesh(new THREE.ConeGeometry(0.1, 0.12, 10), 0xe5484d); cap.position.y = 1.12;
+    L.add(tw, band, lamp, cap); put(L, lx, ln, 0.9); grp('wind').add(L);
+    ticks.push(t => { lamp.material.emissiveIntensity = 0.6 + 0.4 * Math.sin(t * 3); }); }
+
+  // 6) 돌하르방 (제주목 관아 앞)
+  { const [mx, mn] = LM('mokgwana');
+    [-0.25, 0.25].forEach(off => {
+      const s = new THREE.Group(), stone = 0x55565c;
+      const body = mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.42, 10), stone); body.position.y = 0.21;
+      const head = mesh(new THREE.SphereGeometry(0.12, 10, 8), stone); head.position.y = 0.55;
+      const hat = mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.09, 10), stone); hat.position.y = 0.66;
+      const nose = mesh(new THREE.BoxGeometry(0.03, 0.05, 0.04), 0x45464b); nose.position.set(0, 0.54, 0.12);
+      const arms = mesh(new THREE.BoxGeometry(0.3, 0.05, 0.07), stone); arms.position.set(0, 0.33, 0.1);
+      s.add(body, head, hat, nose, arms); s.scale.setScalar(1.6); put(s, mx + off, mn + 0.35); grp('culture').add(s);
+    }); }
+
+  // 7) 한라산 백록담
+  { const [hx, hn] = toXN(126.533, 33.362), lake = mesh(new THREE.CircleGeometry(0.3, 20).rotateX(-Math.PI / 2), 0x3aa0c0, { transparent: true, opacity: 0.9 });
+    lake.position.set(hx, heightKm(hx, hn) * EXAG + 0.03, -hn); grp('mt').add(lake); }
+
+  ticks.push(t => {
+    rotors.forEach((r, i) => { r.rotation.z = t * 1.2 + i; });
+    boats.forEach(b => { const u = b.userData; b.position.y = 0.08 + Math.sin(t * 1.4 + u.ph) * 0.03; b.position.x = u.bx + Math.sin(t * 0.3 + u.ph) * 0.15; b.rotation.z = Math.sin(t * 1.4 + u.ph) * 0.06; });
+    waves.forEach(w => { const ph = (t * 0.22 + w.userData.i / 3) % 1; w.scale.setScalar(0.5 + ph * 1.5); w.material.opacity = 0.5 * (1 - ph); });
+  });
+  return { groups, tick: t => ticks.forEach(f => f(t)) };
+}
+
 // ---- 지도 시작 ----
 export function initJejuMap({ canvasHost, chipsEl, infoEl, listEl, noteEl }) {
   const W = () => canvasHost.clientWidth, H = () => canvasHost.clientHeight;
@@ -118,7 +242,7 @@ export function initJejuMap({ canvasHost, chipsEl, infoEl, listEl, noteEl }) {
   scene.background = new THREE.Color(0xd6eef2);
   scene.fog = new THREE.Fog(0xd6eef2, 90, 190);
   const camera = new THREE.PerspectiveCamera(40, W() / H(), 0.5, 400);
-  camera.position.set(0, 42, 58);
+  camera.position.set(0, 42, 58).multiplyScalar(Math.max(1, 1.5 / camera.aspect));   // 화면이 좁을수록 멀리서 시작해 섬 전체가 보이게
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -153,6 +277,8 @@ export function initJejuMap({ canvasHost, chipsEl, infoEl, listEl, noteEl }) {
     new THREE.MeshPhongMaterial({ color: 0x35a6ba, transparent: true, opacity: 0.7, shininess: 90, specular: 0xbfe9f0 }));
   sea.position.y = 0.02; scene.add(sea);
 
+  const props = buildProps(scene);
+
   // ---- 표시 ----
   const markers = [];                 // { data, obj, el }
   let selected = null, fly = null;
@@ -166,7 +292,8 @@ export function initJejuMap({ canvasHost, chipsEl, infoEl, listEl, noteEl }) {
     fetchWeather(d.lat, d.lon).then(j => { if (selected === m) wx.innerHTML = weatherHtml(j); })
       .catch(() => { if (selected === m) wx.textContent = ''; });   // 키가 없으면 날씨만 빠져요
     const p = m.obj.position;
-    fly = { target: new THREE.Vector3(p.x, 0, p.z), cam: new THREE.Vector3(p.x, 12, p.z + 17) };
+    const gy = Math.max(0, p.y - 1.4);   // 마커 아래 땅 높이 기준으로 가까이 다가가요
+    fly = { target: new THREE.Vector3(p.x, gy, p.z), cam: new THREE.Vector3(p.x, gy + 7, p.z + 9) };
   }
   function addMarker(data, x, n, { small } = {}) {
     const el = document.createElement('button');
@@ -191,6 +318,7 @@ export function initJejuMap({ canvasHost, chipsEl, infoEl, listEl, noteEl }) {
   chipsEl.addEventListener('click', e => {
     const b = e.target.closest('[data-f]'); if (!b) return; filter = b.dataset.f;
     chipsEl.querySelectorAll('[data-f]').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+    Object.entries(props.groups).forEach(([k, g]) => { g.visible = k === 'forest' || filter === 'all' || filter === k; });
     markers.forEach(m => { m.obj.visible = filter === 'all' || m.data.cat === filter || (!m.data.cat && filter === 'all'); });
   });
   showInfo(markers[0]); fly = null;
@@ -224,6 +352,7 @@ export function initJejuMap({ canvasHost, chipsEl, infoEl, listEl, noteEl }) {
       controls.target.lerp(fly.target, 0.08); camera.position.lerp(fly.cam, 0.06);
       if (controls.target.distanceTo(fly.target) < 0.05 && camera.position.distanceTo(fly.cam) < 0.1) fly = null;
     }
+    props.tick(performance.now() / 1000);
     controls.update(); renderer.render(scene, camera); labels.render(scene, camera);
   }
   const start = () => { if (!running) { running = true; frame(); } };
