@@ -2,6 +2,7 @@ import { ICONS, FACTS, CHIPS } from './data.js';
 import { searchPhotos } from './api.js';
 import { supabase, hasSupabase } from './supabase.js';
 import * as store from './store.js';
+import { TOUR_SITES, fmtNum, loadTourStats } from './tour.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -271,5 +272,29 @@ new IntersectionObserver((es, ob) => {
     m.initJejuMap({ canvasHost: $('#mapView'), chipsEl: $('#mapChips'), infoEl: $('#mapInfo'), listEl: $('#mapList'), noteEl: $('#mapNote') });
   }).catch(() => { $('#mapLoading').textContent = '3D 지도를 불러오지 못했어요. (WebGL을 지원하는 브라우저가 필요해요.)'; });
 }, { rootMargin: '300px' }).observe(mapSec);
+
+// ---------- 서귀포시 추천 관광지 ----------
+function renderTour(stats) {
+  const byKey = new Map((stats?.items || []).map(o => [o.site.key, o]));
+  const max = Math.max(1, ...[...byKey.values()].map(o => o.years[o.last]));
+  const list = TOUR_SITES.map(s => ({ s, o: byKey.get(s.key) })).sort((a, b) => (b.o?.years[b.o.last] || 0) - (a.o?.years[a.o.last] || 0));
+  $('#tourGrid').innerHTML = list.map(({ s, o }) => {
+    const v = o ? o.years[o.last] : 0;
+    return `<button class="card tour" style="--c:#d6336c" data-key="${esc(s.key)}" aria-label="${esc(s.name)} 지도에서 보기">
+      <span class="body"><span class="tour-top"><span class="tour-emoji">${s.emoji}</span><b>${esc(s.name)}</b></span>
+      <small>${esc(s.desc)}</small>
+      ${o ? `<span class="tour-num">${esc(o.last)}년 관람객 <b>${fmtNum(v)}명</b></span><span class="tour-bar"><i style="width:${Math.max(3, Math.round(v / max * 100))}%"></i></span>` : ''}
+      <span class="tag">지도에서 보기 →</span></span></button>`;
+  }).join('');
+  $('#tourNote').textContent = byKey.size ? '관람객 수는 공공데이터포털 “서귀포시 직영관광지 관람객수 추이” 자료예요.' : '';
+}
+renderTour(null);
+loadTourStats().then(renderTour);
+$('#tourGrid').addEventListener('click', e => {
+  const c = e.target.closest('.tour'); if (!c) return;
+  window.__jejuFocus = c.dataset.key;
+  window.dispatchEvent(new CustomEvent('jeju:focus', { detail: c.dataset.key }));
+  $('#map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 initAuth(); renderIcons(); loadHero(); runSearch('jeju island');

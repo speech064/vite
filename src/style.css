@@ -185,3 +185,13 @@ figcaption a{color:#fff}
 .mi-wx{margin-top:8px;font-size:14px}
 .mi-wx:empty{display:none}
 .mi-wx small{color:var(--mute)}
+
+/* ---- 서귀포시 추천 관광지 ---- */
+.tourgrid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.card.tour{text-align:left;font:inherit;cursor:pointer}
+.tour-top{display:flex;align-items:center;gap:8px;font-size:17px}
+.tour-emoji{font-size:26px;line-height:1}
+.tour-num{display:block;margin-top:8px;font-size:14px;color:var(--mute)}
+.tour-num b{color:#d6336c}
+.tour-bar{display:block;height:8px;border-radius:99px;background:var(--line);margin:6px 0 10px;overflow:hidden}
+.tour-bar i{display:block;height:100%;background:#d6336c;border-radius:99px}
