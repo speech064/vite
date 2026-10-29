@@ -1,0 +1,18 @@
+{
+  "name": "jeju-ip",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "제주의 얼굴들 — 돌하르방·감귤·한라산·해녀… 제주 IP를 사진과 함께 둘러보는 사이트 (Vite + Vercel + Pixabay)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

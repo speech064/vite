@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>제주의 얼굴들 · 제주 IP 탐험</title>
+  <meta name="description" content="돌하르방, 감귤, 한라산, 해녀, 제주마… 제주를 대표하는 IP(이야기와 상징)를 사진과 함께 둘러보세요.">
+  <meta property="og:title" content="제주의 얼굴들 · 제주 IP 탐험">
+  <meta property="og:description" content="돌하르방부터 해녀까지, 제주의 상징을 사진으로 만나요.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0e7c86">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <header class="nav" id="nav">
+    <a class="brand" href="#top"><span class="logo">🌊</span> 제주의 얼굴들</a>
+    <nav>
+      <a href="#icons">제주 IP</a>
+      <a href="#facts">알아보기</a>
+      <a href="#gallery">사진 갤러리</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" id="hero">
+      <div class="hero-bg" id="heroBg"></div>
+      <div class="hero-inner">
+        <p class="eyebrow">JEJU ICONS</p>
+        <h1>제주의 얼굴들,<br>이야기가 되는 상징</h1>
+        <p class="lead">돌하르방, 감귤, 한라산, 해녀… 제주를 제주답게 만드는 IP를 사진과 함께 둘러봐요.</p>
+        <div class="cta"><a class="btn primary" href="#icons">제주 IP 보러 가기</a><a class="btn ghost" href="#gallery">사진 검색하기</a></div>
+        <p class="credit" id="heroCredit"></p>
+      </div>
+    </section>
+
+    <div class="notice" id="notice" hidden></div>
+
+    <section class="section" id="icons">
+      <div class="head"><p class="eyebrow dark">제주 IP 8선</p><h2>제주를 대표하는 얼굴들</h2><p class="sub">카드를 누르면 이야기와 사진을 더 볼 수 있어요.</p></div>
+      <div class="grid" id="iconGrid"></div>
+    </section>
+
+    <section class="section tint" id="facts">
+      <div class="head"><p class="eyebrow dark">알아보기</p><h2>숫자로 보는 제주</h2></div>
+      <div class="facts" id="factGrid"></div>
+    </section>
+
+    <section class="section" id="gallery">
+      <div class="head"><p class="eyebrow dark">사진 갤러리</p><h2>제주를 검색해 보세요</h2><p class="sub">Pixabay의 사진을 불러와요. 사진을 누르면 크게 볼 수 있어요.</p></div>
+      <form class="search" id="searchForm" role="search">
+        <input id="searchInput" type="search" placeholder="예: oreum, 성산일출봉, camellia" aria-label="사진 검색어" autocomplete="off">
+        <button class="btn primary" type="submit">검색</button>
+      </form>
+      <div class="chips" id="chips"></div>
+      <div class="masonry" id="masonry"></div>
+      <div class="more"><button class="btn ghost" id="moreBtn" hidden>더 보기</button></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>사진 출처: <a href="https://pixabay.com" target="_blank" rel="noopener noreferrer">Pixabay</a> — 각 사진에 촬영자(업로더)를 표시하고 원본 페이지로 연결해요.</p>
+    <p>이 사이트는 제주의 상징을 소개하는 비공식 팬 프로젝트이며, 설명은 일반적으로 알려진 내용을 바탕으로 간단히 정리했어요.</p>
+  </footer>
+
+  <div class="modal" id="modal" hidden></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
