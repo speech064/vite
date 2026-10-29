@@ -26,7 +26,7 @@ vite.config.js        로컬 개발 때 /api/pixabay 를 흉내 내는 설정 �
 | 이름 | 어디서 | 공개 여부 |
 |---|---|---|
 | `PIXABAY_API_KEY` | Pixabay API 문서 페이지 | **비공개** (서버 함수에서만 사용 — `VITE_` 금지) |
-| `VITE_SUPABASE_URL` | Supabase → Project Settings → API → **Project URL** | 공개돼도 됨 |
+| `VITE_SUPABASE_URL` | Supabase → Project Settings → API/Data API → **Project URL** (`https://xxxx.supabase.co` — 뒤에 `/rest/v1/` 는 붙이지 않아요) | 공개돼도 됨 |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → **anon public** 키 | 공개돼도 됨 (RLS가 보호) |
 
 > ⚠️ `service_role` 키는 어디에도 넣지 마세요. 그 키는 모든 보안 정책을 무시해요.
