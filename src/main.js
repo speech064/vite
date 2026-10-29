@@ -262,4 +262,14 @@ async function loadHero() {
 // ---------- 상단바 스크롤 효과 ----------
 const nav = $('#nav'); const onScroll = () => nav.classList.toggle('solid', scrollY > 40); addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
+// 3D 지도는 용량이 커서, 화면 가까이 왔을 때 처음 불러와요.
+const mapSec = $('#map'); let mapStarted = false;
+new IntersectionObserver((es, ob) => {
+  if (mapStarted || !es.some(e => e.isIntersecting)) return; mapStarted = true; ob.disconnect();
+  import('./map3d.js').then(m => {
+    $('#mapLoading')?.remove();
+    m.initJejuMap({ canvasHost: $('#mapView'), chipsEl: $('#mapChips'), infoEl: $('#mapInfo'), listEl: $('#mapList'), noteEl: $('#mapNote') });
+  }).catch(() => { $('#mapLoading').textContent = '3D 지도를 불러오지 못했어요. (WebGL을 지원하는 브라우저가 필요해요.)'; });
+}, { rootMargin: '300px' }).observe(mapSec);
+
 initAuth(); renderIcons(); loadHero(); runSearch('jeju island');

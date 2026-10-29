@@ -20,6 +20,7 @@
     <nav>
       <a href="#icons">제주 IP</a>
       <a href="#facts">알아보기</a>
+      <a href="#map">제주 지도</a>
       <a href="#gallery">사진 갤러리</a>
       <a href="#shop" id="shopLink" hidden>굿즈</a>
       <a href="#saved" id="savedLink" hidden>내 보관함</a>
@@ -50,6 +51,15 @@
     <section class="section tint" id="facts">
       <div class="head"><p class="eyebrow dark">알아보기</p><h2>숫자로 보는 제주</h2></div>
       <div class="facts" id="factGrid"></div>
+    </section>
+
+    <section class="section" id="map">
+      <div class="head"><p class="eyebrow dark">제주 지도</p><h2>제주를 입체로 둘러보기</h2><p class="sub">드래그로 돌리고, 휠·두 손가락으로 확대하고, 마커를 눌러 보세요. 한라산·오름·해안 모양만 닮게 만든 지도라 위치는 대략적이에요.</p></div>
+      <div class="chips" id="mapChips"></div>
+      <div class="mapview" id="mapView"><p class="loading" id="mapLoading">3D 지도를 불러오는 중…</p></div>
+      <div class="mapinfo" id="mapInfo" aria-live="polite"></div>
+      <p class="mapnote" id="mapNote"></p>
+      <div class="chips maplist" id="mapList"></div>
     </section>
 
     <section class="section" id="gallery">
