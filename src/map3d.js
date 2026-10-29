@@ -15,8 +15,32 @@ export const CATS = {
   wind:    { label: '풍력·등대',     emoji: '🌬️', color: '#5b7fb5' },
   port:    { label: '항·포구',       emoji: '⚓', color: '#3d5a80' },
   culture: { label: '돌하르방·문화', emoji: '🗿', color: '#7b7b80' },
-  orchard: { label: '감귤',          emoji: '🍊', color: '#f08a00' }
+  orchard: { label: '감귤',          emoji: '🍊', color: '#f08a00' },
+  tour:    { label: '서귀포 직영관광지', emoji: '🎟️', color: '#d6336c' }
 };
+// 서귀포시 직영관광지 위치(대략). 공공데이터에는 좌표가 없어서 이름이 포함되면 이 표의 위치를 써요.
+const TOUR_SITES = [
+  { key: '천지연', lon: 126.5543, lat: 33.2468 }, { key: '정방', lon: 126.5726, lat: 33.2447 }, { key: '서복', lon: 126.5705, lat: 33.2455 },
+  { key: '이중섭', lon: 126.5614, lat: 33.2475 }, { key: '기당', lon: 126.56, lat: 33.265 }, { key: '감귤박물관', lon: 126.6, lat: 33.285 },
+  { key: '쇠소깍', lon: 126.6226, lat: 33.2527 }, { key: '외돌개', lon: 126.5459, lat: 33.2388 }, { key: '소정방', lon: 126.5693, lat: 33.2437 }
+];
+const fmtNum = n => Math.round(n).toLocaleString('ko-KR');
+// 관람객 자료 → { 관광지명: { 연도: 합계 } }. 세로형(연도 열) 과 가로형(2023년 같은 열 이름) 둘 다 읽어요.
+function parseVisitors(rows) {
+  const out = new Map(), add = (name, year, n) => { if (!name || !year || !(n >= 0)) return; const m = out.get(name) || {}; m[year] = (m[year] || 0) + n; out.set(name, m); };
+  const num = v => parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, ''));
+  for (const row of rows) {
+    const keys = Object.keys(row);
+    const kName = keys.find(k => /관광지|시설|명칭|장소|^명$|명$/.test(k) && !/연도|월/.test(k));
+    const name = kName && String(row[kName]).trim(); if (!name) continue;
+    const wide = keys.filter(k => /^(19|20)\d{2}\s*년?$/.test(k.trim()));
+    if (wide.length) { wide.forEach(k => add(name, k.trim().slice(0, 4), num(row[k]))); continue; }
+    const kYear = keys.find(k => /연도|년도|^year$|^년$/i.test(k)), kCnt = keys.find(k => /관람객|입장객|방문객|인원|관람/.test(k) && k !== kName);
+    if (!kYear || !kCnt) continue;
+    const y = String(row[kYear]).match(/(19|20)\d{2}/); if (y) add(name, y[0], num(row[kCnt]));
+  }
+  return out;
+}
 // 위치는 대략적인 값이에요.
 export const LANDMARKS = [
   { id: 'hallasan', name: '한라산', cat: 'mt', lon: 126.533, lat: 33.362, desc: '해발 1,947m, 대한민국에서 가장 높은 산이에요. 꼭대기에는 화구호 백록담이 있어요.' },
@@ -342,6 +366,35 @@ export function initJejuMap({ canvasHost, chipsEl, infoEl, listEl, noteEl }) {
       pts.forEach(p => { const [x, n] = toXN(p.lon, p.lat); addMarker(p, x, n, { small: true }); });
       noteEl.textContent = pts.length ? `공공데이터포털 자료에서 ${pts.length}곳을 함께 표시했어요. (작은 📍)` : `공공데이터 ${rows.length}건을 불러왔지만 좌표(위도·경도)가 없어 지도에는 표시하지 않았어요.`;
     } catch { /* 키가 없으면 기본 명소만 보여요 */ }
+  })();
+
+  // ---- 서귀포시 직영관광지 관람객 (마커 + 관람객이 많을수록 높은 막대) ----
+  (async () => {
+    try {
+      const r = await fetch('/api/seogwipo-tour?perPage=1000'); if (!r.ok) return;
+      const rows = (await r.json()).data || []; if (!rows.length) return;
+      const stats = parseVisitors(rows);
+      if (!stats.size) { noteEl.textContent = `서귀포 직영관광지 자료 ${rows.length}건을 불러왔지만 관광지·연도·관람객 수 항목을 찾지 못했어요.`; return; }
+      const rowsOut = [], missing = [];
+      stats.forEach((years, name) => {
+        const site = TOUR_SITES.find(s => name.includes(s.key));
+        const ys = Object.keys(years).sort(), last = ys[ys.length - 1];
+        if (!site) { missing.push(name); return; }
+        rowsOut.push({ name, site, years, ys, last });
+      });
+      const max = Math.max(1, ...rowsOut.map(o => o.years[o.last]));
+      const tourGroup = new THREE.Group(); scene.add(tourGroup); props.groups.tour = tourGroup;
+      rowsOut.forEach(o => {
+        const [x, n] = toXN(o.site.lon, o.site.lat), v = o.years[o.last], bh = 0.4 + 3 * (v / max);
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1, 12).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: 0xd6336c, transparent: true, opacity: 0.85 }));
+        bar.position.set(x, heightAt(x, n), -n); bar.scale.y = bh; tourGroup.add(bar);
+        const trend = o.ys.slice(-4).map(y => `${y}년 ${fmtNum(o.years[y])}명`).join(' · ');
+        const m = addMarker({ id: 'tour-' + o.name, name: o.name, cat: 'tour', lat: o.site.lat, lon: o.site.lon, desc: `관람객 추이: ${trend}` }, x, n);
+        m.obj.position.y += bh;
+      });
+      noteEl.textContent = `서귀포시 직영관광지 ${rowsOut.length}곳을 표시했어요. 막대가 높을수록 최근(${[...new Set(rowsOut.map(o => o.last))].join('·')}년) 관람객이 많아요.`
+        + (missing.length ? ` 위치를 모르는 곳(${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ' 등' : ''})은 지도에 넣지 못했어요.` : '');
+    } catch { /* 환경변수가 없으면 이 기능만 빠져요 */ }
   })();
 
   // ---- 루프 ----

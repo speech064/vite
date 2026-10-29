@@ -32,7 +32,11 @@ vite.config.js        로컬 개발 때 /api/pixabay 를 흉내 내는 설정 �
 | `DATA_GO_KR_KEY` | 마커를 누르면 기상청 초단기실황(현재 날씨)을 보여줘요 (`/api/weather`) |
 | `ODCLOUD_API_KEY` | 공공데이터포털(odcloud) 제주 자료에 위도·경도가 있으면 📍로 겹쳐 표시해요 (`/api/odcloud`) |
 
-둘 다 서버 함수에서만 쓰므로 `VITE_` 를 붙이지 마세요. Vercel 환경변수에 추가한 뒤 **Redeploy** 해야 해요.
+| `SEOGWIPO_API_URL` | 서귀포시 직영관광지 관람객수 추이 API 주소 (`https://api.odcloud.kr/api/…`, serviceKey 는 빼고). `ODCLOUD_API_KEY` 와 함께 써요 (`/api/seogwipo-tour`) |
+
+`SEOGWIPO_API_URL` 을 넣으면 서귀포 직영관광지가 막대(관람객 많을수록 높음)와 함께 지도에 표시돼요. 공공데이터에 좌표가 없어서 `src/map3d.js` 의 `TOUR_SITES` 표에 있는 이름(천지연·정방·서복·이중섭·기당·감귤박물관·쇠소깍·외돌개·소정방)만 위치를 알아요. 다른 관광지는 그 표에 한 줄 추가하면 돼요.
+
+모두 서버 함수에서만 쓰므로 `VITE_` 를 붙이지 마세요. Vercel 환경변수에 추가한 뒤 **Redeploy** 해야 해요.
 
 ## 필요한 환경변수 3개
 
