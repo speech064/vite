@@ -16,6 +16,7 @@
 api/pixabay.js        Vercel 서버리스 함수 (Pixabay 프록시)
 server/pixabay.js     Pixabay 호출 로직 (함수와 로컬 개발 서버가 같이 사용)
 supabase/schema.sql   Supabase 테이블 + 보안(RLS) 정책 ← SQL Editor 에서 실행
+supabase/cart.sql     장바구니(굿즈 데모) 테이블 + 상품 8개 ← schema.sql 다음에 실행
 src/                  화면 코드 (data.js 제주 IP 내용 · api.js · supabase.js · store.js · main.js · style.css)
 vite.config.js        로컬 개발 때 /api/pixabay 를 흉내 내는 설정 포함
 .env.example          환경변수 예시
@@ -44,6 +45,15 @@ vite.config.js        로컬 개발 때 /api/pixabay 를 흉내 내는 설정 �
 2. 이 저장소의 `supabase/schema.sql` **전체를 복사해서 붙여 넣고 Run**.
 3. `Success` 가 나오면 끝! (**Table Editor** 에서 `favorites`, `comments` 가 보이면 정상이에요.)
    여러 번 실행해도 안전해요.
+
+### 2-2. 장바구니(굿즈 데모) 테이블 만들기 — cart.sql 실행
+1. 2단계(`schema.sql`)를 먼저 실행해요.
+2. **SQL Editor → New query** 에서 `supabase/cart.sql` **파일 내용 전체**를 복사해 붙여 넣고 **Run**.
+   (파일 이름이 아니라 **내용**을 복사해야 해요. GitHub 파일 화면의 **Copy raw file** 아이콘이 편해요.)
+3. **Table Editor** 에서 `products`(상품 8개), `cart_items` 가 보이면 성공!
+4. 사이트 새로고침 → **굿즈** 구역과 오른쪽 위 **장바구니** 버튼이 나타나요. (로그인 후 담을 수 있어요)
+
+> 굿즈는 장바구니 체험용 데모예요. 실제 판매·결제는 없고 가격도 예시예요. 상품은 `cart.sql` 의 insert 문(또는 Table Editor)에서 바꿀 수 있어요.
 
 ### 3. Supabase 키 복사
 1. **Project Settings(톱니바퀴) → API**.

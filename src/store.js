@@ -32,3 +32,17 @@ export async function addComment(iconId, nickname, body) {
 export async function deleteComment(id) {
   must(await supabase.from('comments').delete().eq('id', id));
 }
+
+// ---- 장바구니 (굿즈 데모) ----
+export async function listProducts() {
+  return must(await supabase.from('products').select('id,icon_id,name,description,price,emoji').eq('active', true).order('sort', { ascending: true }));
+}
+export async function listCart() {
+  return must(await supabase.from('cart_items').select('id,quantity,product:products(id,name,price,emoji)').order('created_at', { ascending: true }));
+}
+export async function setCartQty(userId, productId, quantity) {
+  must(await supabase.from('cart_items').upsert({ user_id: userId, product_id: productId, quantity }, { onConflict: 'user_id,product_id' }));
+}
+export async function removeCartItem(id) {
+  must(await supabase.from('cart_items').delete().eq('id', id));
+}

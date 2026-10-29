@@ -137,12 +137,74 @@ async function refreshFavs() {
   if (state.user) { try { (await store.listFavorites()).forEach(p => state.favs.set(p.id, p)); } catch (e) { console.warn('보관함을 불러오지 못했어요', e); } }
   renderSaved(); paintHearts();
 }
-async function setUser(u) { const changed = (state.user?.id || null) !== (u?.id || null); state.user = u; updateNav(); if (changed) { await refreshFavs(); if (u && !modal.hidden && $('.login')) closeModal(); } }
+async function setUser(u) { const changed = (state.user?.id || null) !== (u?.id || null); state.user = u; updateNav(); if (changed) { await Promise.all([refreshFavs(), refreshCart()]); if (u && !modal.hidden && $('.login')) closeModal(); } }
 async function initAuth() {
-  updateNav(); renderSaved(); if (!hasSupabase) return;
+  updateNav(); renderSaved(); paintCartBadge(); loadProducts(); if (!hasSupabase) return;
   const { data } = await supabase.auth.getSession(); await setUser(data.session?.user ?? null);
   supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
 }
+
+// ---------- 굿즈 · 장바구니 (Supabase) ----------
+const won = n => Number(n).toLocaleString('ko-KR') + '원';
+const shop = { products: [], error: '' };
+state.cart = [];
+async function loadProducts() {
+  const sec = $('#shop'), link = $('#shopLink'); sec.hidden = link.hidden = !hasSupabase; if (!hasSupabase) return;
+  try { shop.products = await store.listProducts(); shop.error = ''; } catch (e) { shop.error = e.message; }
+  renderShop();
+}
+function renderShop() {
+  const g = $('#shopGrid');
+  if (shop.error) { g.innerHTML = `<p class="loading">상품을 불러오지 못했어요. Supabase에서 <b>supabase/cart.sql</b>을 실행했는지 확인해 주세요. (${esc(shop.error)})</p>`; return; }
+  g.innerHTML = shop.products.length ? shop.products.map(p => `
+    <div class="card product" style="--c:#0e7c86">
+      <span class="thumb"><span class="ph">${esc(p.emoji || '🛍️')}</span></span>
+      <span class="body"><b>${esc(p.name)}</b><small>${esc(p.description || '')}</small><span class="price">${won(p.price)}</span><button class="btn primary addcart" data-pid="${esc(p.id)}">장바구니 담기</button></span>
+    </div>`).join('') : '<p class="loading">준비된 상품이 없어요.</p>';
+}
+$('#shopGrid').addEventListener('click', e => { const b = e.target.closest('.addcart'); if (b) addToCart(b.dataset.pid, b); });
+
+const cartCount = () => state.cart.reduce((n, c) => n + c.quantity, 0);
+const cartTotal = () => state.cart.reduce((n, c) => n + c.quantity * (c.product?.price || 0), 0);
+function paintCartBadge() { $('#cartBtn').hidden = !hasSupabase; $('#cartCount').textContent = cartCount(); }
+async function refreshCart() {
+  state.cart = []; if (state.user) { try { state.cart = await store.listCart(); } catch (e) { console.warn('장바구니를 불러오지 못했어요', e); } }
+  paintCartBadge(); if (!modal.hidden && $('.cartbox')) renderCart();
+}
+async function setQty(productId, qty) {
+  await store.setCartQty(state.user.id, productId, qty); await refreshCart();
+}
+async function addToCart(pid, btn) {
+  if (!state.user) { openLogin('장바구니에 담으려면 로그인해 주세요.'); return; }
+  const cur = state.cart.find(c => c.product?.id === pid)?.quantity || 0;
+  if (cur >= 20) { alert('한 상품은 20개까지 담을 수 있어요.'); return; }
+  try { if (btn) btn.disabled = true; await setQty(pid, cur + 1); if (btn) { btn.textContent = '담았어요 ✓'; setTimeout(() => { btn.textContent = '장바구니 담기'; btn.disabled = false; }, 900); } }
+  catch (e) { if (btn) btn.disabled = false; alert('담지 못했어요: ' + e.message); }
+}
+function renderCart() {
+  const box = $('.cartbox'); if (!box) return;
+  box.innerHTML = state.cart.length ? `
+    <ul class="cartlist">${state.cart.map(c => `<li data-id="${c.id}" data-pid="${esc(c.product?.id)}"><span class="em">${esc(c.product?.emoji || '🛍️')}</span><div class="ci"><b>${esc(c.product?.name)}</b><small>${won(c.product?.price || 0)}</small></div>
+      <div class="qty"><button data-act="dec" aria-label="하나 줄이기">−</button><span>${c.quantity}</span><button data-act="inc" aria-label="하나 늘리기">＋</button></div><b class="line">${won(c.quantity * (c.product?.price || 0))}</b><button class="cmdel" data-act="del">삭제</button></li>`).join('')}</ul>
+    <div class="carttotal"><span>합계 (${cartCount()}개)</span><b>${won(cartTotal())}</b></div>
+    <div class="cartact"><button class="btn ghost" data-act="clear">모두 비우기</button><button class="btn primary" disabled title="체험용이라 결제는 지원하지 않아요">주문하기 (체험용)</button></div>
+    <p class="loading">※ 데모라서 실제 결제·배송은 이루어지지 않아요.</p>` : '<p class="loading">장바구니가 비어 있어요. 마음에 드는 굿즈를 담아 보세요!</p>';
+}
+function openCart() {
+  if (!state.user) { openLogin('장바구니를 보려면 로그인해 주세요.'); return; }
+  openModal('<div class="cartwrap"><h3>🛒 장바구니</h3><div class="cartbox"></div></div>'); renderCart();
+  $('.cartbox').onclick = async e => {
+    const b = e.target.closest('[data-act]'); if (!b) return; const li = b.closest('li'), act = b.dataset.act;
+    try {
+      if (act === 'clear') { if (!confirm('장바구니를 모두 비울까요?')) return; for (const c of state.cart) await store.removeCartItem(c.id); await refreshCart(); return; }
+      const c = state.cart.find(x => String(x.id) === li?.dataset.id); if (!c) return;
+      if (act === 'del') { await store.removeCartItem(c.id); await refreshCart(); }
+      else if (act === 'inc') { if (c.quantity < 20) await setQty(c.product.id, c.quantity + 1); }
+      else if (act === 'dec') { if (c.quantity > 1) await setQty(c.product.id, c.quantity - 1); else { await store.removeCartItem(c.id); await refreshCart(); } }
+    } catch (err) { alert('처리하지 못했어요: ' + err.message); }
+  };
+}
+$('#cartBtn').addEventListener('click', openCart);
 
 // ---------- 갤러리(검색) ----------
 const gal = { q: 'jeju island', page: 1, hits: [], total: 0, busy: false };

@@ -135,3 +135,26 @@ figcaption a{color:#fff}
 .cmlist p{margin:2px 0 0;word-break:break-word}
 .cmlist small{color:var(--mute)}
 .cmdel{font:inherit;font-size:12px;border:0;background:none;color:#c0392b;cursor:pointer;text-decoration:underline}
+
+/* 굿즈 · 장바구니 */
+.authbtn b{background:#ffd9a0;color:#2d1700;border-radius:999px;padding:0 8px;margin-left:4px;font-size:13px}
+.product{cursor:default}
+.product:hover{transform:translateY(-4px)}
+.product .thumb{aspect-ratio:16/9}
+.product small{display:block;min-height:2.6em}
+.price{display:block;font-weight:700;color:var(--sea-d);margin:6px 0 10px;font-size:18px}
+.product .btn{width:100%;padding:9px 12px}
+.cartwrap h3{font-size:28px;margin-bottom:12px}
+.cartlist{list-style:none;margin:0;padding:0}
+.cartlist li{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.cartlist .em{font-size:34px}
+.cartlist .ci{flex:1 1 150px}
+.cartlist .ci small{display:block;color:var(--mute)}
+.qty{display:flex;align-items:center;gap:8px}
+.qty button{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--sea);background:#fff;color:var(--sea-d);font-size:17px;cursor:pointer}
+.qty span{min-width:22px;text-align:center;font-weight:700}
+.cartlist .line{min-width:84px;text-align:right}
+.carttotal{display:flex;justify-content:space-between;font-size:20px;padding:16px 4px 8px}
+.carttotal b{color:var(--tang);font-size:24px}
+.cartact{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+@media (max-width:560px){#cartBtn{padding:4px 10px;font-size:13px}.nav nav a#shopLink{display:none}}
