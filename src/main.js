@@ -2,7 +2,7 @@ import { ICONS, FACTS, CHIPS } from './data.js';
 import { searchPhotos } from './api.js';
 import { supabase, hasSupabase } from './supabase.js';
 import * as store from './store.js';
-import { TOUR_SITES, fmtNum, loadTourStats } from './tour.js';
+import { TOUR_SITES, fmtNum, loadTourStats, mapXY, islandPath, MAP_VIEW } from './tour.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -286,10 +286,44 @@ function renderTour(stats) {
       ${o ? `<span class="tour-num">${esc(o.last)}년 관람객 <b>${fmtNum(v)}명</b></span><span class="tour-bar"><i style="width:${Math.max(3, Math.round(v / max * 100))}%"></i></span>` : ''}
       <span class="tag">지도에서 보기 →</span></span></button>`;
   }).join('');
+  renderTourViz(list, max);
   $('#tourNote').textContent = byKey.size ? '관람객 수는 공공데이터포털 “서귀포시 직영관광지 관람객수 추이” 자료예요.' : '';
 }
+// 방문 순위(막대그래프) + 제주 약도(SVG): 같은 key 를 가진 항목끼리 마우스를 올리면 함께 강조돼요.
+function renderTourViz(list, max) {
+  const ranked = list.filter(x => x.o);
+  const [hx, hy] = mapXY(126.533, 33.362);
+  const pins = list.map(({ s, o }) => {
+    const [x, y] = mapXY(s.lon, s.lat), rank = o ? ranked.findIndex(r => r.s === s) + 1 : 0, r = o ? 5 + 6 * (o.years[o.last] / max) : 4;
+    return `<g class="pin${o ? '' : ' nodata'}" data-key="${esc(s.key)}" tabindex="0" role="button" aria-label="${esc(s.name)}${rank ? ` ${rank}위` : ''}">
+      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}"></circle>${rank && r >= 8 ? `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}">${rank}</text>` : ''}
+      <text class="plabel" x="${x.toFixed(1)}" y="${(y - r - 6).toFixed(1)}">${esc(s.name)}</text></g>`;
+  }).join('');
+  $('#tourMap').innerHTML = `<svg viewBox="${MAP_VIEW}" role="img" aria-label="제주도 약도에 표시한 서귀포시 직영관광지 위치">
+    <path class="isle" d="${islandPath()}"></path>
+    <path class="mtn" d="M${hx - 16},${hy + 10}L${hx},${hy - 16}L${hx + 16},${hy + 10}Z"></path><text class="hl" x="${hx}" y="${hy + 26}">한라산</text>
+    <text class="hl" x="-330" y="-190">제주시</text><text class="hl" x="-100" y="210">서귀포시</text>${pins}</svg>`;
+  $('#tourRank').innerHTML = ranked.length
+    ? ranked.map(({ s, o }, i) => `<li><button class="rank-item" data-key="${esc(s.key)}"><span class="rk">${i + 1}</span><span class="rn">${s.emoji} ${esc(s.name)}</span>
+        <span class="rb"><i style="width:${Math.max(3, Math.round(o.years[o.last] / max * 100))}%"></i></span><span class="rv">${fmtNum(o.years[o.last])}명 <small>${esc(o.last)}</small></span></button></li>`).join('')
+    : '<li class="rank-empty">관람객 수 자료를 불러오면 방문 순위가 여기에 표시돼요.</li>';
+  $('#tourRankTitle').textContent = ranked.length ? `방문 순위 (${[...new Set(ranked.map(r => r.o.last))].join('·')}년 관람객)` : '방문 순위';
+}
+function hoverTour(key, on) { document.querySelectorAll(`#tourViz [data-key="${CSS.escape(key)}"]`).forEach(el => el.classList.toggle('hl-on', on)); }
+$('#tourViz').addEventListener('mouseover', e => { const t = e.target.closest('[data-key]'); if (t) hoverTour(t.dataset.key, true); });
+$('#tourViz').addEventListener('mouseout', e => { const t = e.target.closest('[data-key]'); if (t) hoverTour(t.dataset.key, false); });
+$('#tourViz').addEventListener('focusin', e => { const t = e.target.closest('[data-key]'); if (t) hoverTour(t.dataset.key, true); });
+$('#tourViz').addEventListener('focusout', e => { const t = e.target.closest('[data-key]'); if (t) hoverTour(t.dataset.key, false); });
+
 renderTour(null);
 loadTourStats().then(renderTour);
+function focusTour(key) {
+  window.__jejuFocus = key;
+  window.dispatchEvent(new CustomEvent('jeju:focus', { detail: key }));
+  $('#map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+$('#tourViz').addEventListener('click', e => { const t = e.target.closest('[data-key]'); if (t) focusTour(t.dataset.key); });
+$('#tourViz').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest('.pin')) focusTour(e.target.closest('.pin').dataset.key); });
 $('#tourGrid').addEventListener('click', e => {
   const c = e.target.closest('.tour'); if (!c) return;
   window.__jejuFocus = c.dataset.key;

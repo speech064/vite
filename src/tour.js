@@ -47,3 +47,19 @@ export function loadTourStats() {
   })();
   return pending;
 }
+
+// ---- 2D 제주 약도 (SVG) : 섬 윤곽은 3D 지도와 같은 모양을 흉내 낸 대략적인 모양이에요 ----
+const LON0 = 126.56, LAT0 = 33.38, KM_LON = 93, KM_LAT = 111, TILT = 0.105, U = 10;   // 1km = 10 SVG 단위
+export const MAP_VIEW = '-460 -240 920 480';
+export const mapXY = (lon, lat) => [(lon - LON0) * KM_LON * U, -(lat - LAT0) * KM_LAT * U];
+export function islandPath() {
+  const pts = [];
+  for (let a = 0; a < 360; a += 3) {
+    const t = a * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+    let r = Math.pow(Math.pow(Math.abs(c / 40.5), 2.6) + Math.pow(Math.abs(s / 19), 2.6), -1 / 2.6);
+    r *= 1 + 0.03 * Math.sin(a * 0.31) + 0.02 * Math.sin(a * 0.9 + 1);
+    const x = r * c, n = r * s + r * c * TILT;
+    pts.push(`${(x * U).toFixed(1)},${(-n * U).toFixed(1)}`);
+  }
+  return 'M' + pts.join('L') + 'Z';
+}

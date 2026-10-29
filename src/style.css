@@ -195,3 +195,28 @@ figcaption a{color:#fff}
 .tour-num b{color:#d6336c}
 .tour-bar{display:block;height:8px;border-radius:99px;background:var(--line);margin:6px 0 10px;overflow:hidden}
 .tour-bar i{display:block;height:100%;background:#d6336c;border-radius:99px}
+.tourviz{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start;margin-bottom:28px}
+@media(max-width:820px){.tourviz{grid-template-columns:1fr}}
+.tourmap,.tourrank{background:#fff;border-radius:20px;padding:16px;box-shadow:0 4px 18px rgba(20,40,40,.08)}
+.tourmap svg{display:block;width:100%;height:auto;background:#d6eef2;border-radius:14px}
+.tourmap .isle{fill:#9ccf84;stroke:#5f9a45;stroke-width:3;stroke-linejoin:round}
+.tourmap .mtn{fill:#8d7e69}
+.tourmap .hl{font-size:15px;fill:#4a5a55;text-anchor:middle;font-weight:700}
+.tourmap .pin{cursor:pointer;outline:none}
+.tourmap .pin circle{fill:#d6336c;stroke:#fff;stroke-width:2.5}
+.tourmap .pin.nodata circle{fill:#8a949a}
+.tourmap .pin text{font-size:10px;font-weight:700;fill:#fff;text-anchor:middle;pointer-events:none}
+.tourmap .pin .plabel{display:none;font-size:16px;fill:#22252b;stroke:#fff;stroke-width:4px;paint-order:stroke}
+.tourmap .pin.hl-on .plabel,.tourmap .pin:focus .plabel{display:block}
+.tourmap .pin.hl-on circle{stroke:#22252b}
+.tourrank h3{margin:0 0 10px;font-size:17px}
+.tourrank ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.rank-item{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:26px 1fr;grid-template-areas:"k n v" "k b b";column-gap:10px;row-gap:4px;padding:8px 10px;border-radius:12px;cursor:pointer;align-items:center;grid-template-columns:26px 1fr auto}
+.rank-item:hover,.rank-item.hl-on,.rank-item:focus-visible{background:var(--tint)}
+.rk{grid-area:k;width:24px;height:24px;border-radius:50%;background:#d6336c;color:#fff;font-size:13px;font-weight:700;display:grid;place-items:center}
+.rn{grid-area:n;font-weight:700}
+.rv{grid-area:v;font-size:14px;color:#d6336c;font-weight:700}
+.rv small{color:var(--mute);font-weight:400}
+.rb{grid-area:b;display:block;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.rb i{display:block;height:100%;background:#d6336c;border-radius:99px}
+.rank-empty{color:var(--mute);font-size:14px;padding:8px 4px}
