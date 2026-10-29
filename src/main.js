@@ -1,10 +1,17 @@
 import { ICONS, FACTS, CHIPS } from './data.js';
 import { searchPhotos } from './api.js';
+import { supabase, hasSupabase } from './supabase.js';
+import * as store from './store.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const safeUrl = u => { const s = String(u ?? ''); if (s.startsWith('/') && !s.startsWith('//')) return s; try { const x = new URL(s); return x.protocol === 'https:' ? x.href : '#'; } catch { return '#'; } };
 const creditHtml = p => `사진: <a href="${esc(safeUrl(p.page))}" target="_blank" rel="noopener noreferrer">${esc(p.user)}</a> / Pixabay`;
+
+// ---------- 상태 ----------
+const state = { user: null, favs: new Map() };     // favs: photoId -> photo
+const registry = new Map();                         // 화면에 나온 사진을 id로 찾기 위한 보관소
+const remember = list => list.forEach(p => registry.set(p.id, p));
 
 let apiBroken = null;           // API 키가 없거나 서버 오류일 때 안내 문구를 한 번만 보여줘요
 function showNotice(err) {
@@ -13,6 +20,20 @@ function showNotice(err) {
     ? '⚠️ 사진을 불러오려면 <b>PIXABAY_API_KEY</b> 환경변수가 필요해요. README의 “환경변수 설정” 절차를 따라 주세요.'
     : `⚠️ ${esc(err.message || '사진을 불러오지 못했어요.')}`;
 }
+
+// ---------- ♥ 버튼 ----------
+const heart = p => hasSupabase ? `<button class="heart${state.favs.has(p.id) ? ' on' : ''}" data-pid="${p.id}" aria-label="내 보관함에 저장" title="내 보관함에 저장">♥</button>` : '';
+function paintHearts() { document.querySelectorAll('.heart').forEach(b => b.classList.toggle('on', state.favs.has(Number(b.dataset.pid)))); }
+async function toggleFav(pid) {
+  const p = registry.get(pid); if (!p) return;
+  if (!state.user) { openLogin('사진을 저장하려면 먼저 로그인해 주세요.'); return; }
+  try {
+    if (state.favs.has(pid)) { await store.removeFavorite(pid); state.favs.delete(pid); }
+    else { await store.addFavorite(p); state.favs.set(pid, p); }
+    paintHearts(); renderSaved();
+  } catch (e) { alert('저장하지 못했어요: ' + e.message); }
+}
+document.addEventListener('click', e => { const b = e.target.closest('.heart'); if (b) { e.stopPropagation(); toggleFav(Number(b.dataset.pid)); } }, true);
 
 // ---------- 제주 IP 카드 ----------
 function renderIcons() {
@@ -25,8 +46,7 @@ function renderIcons() {
     try {
       const r = await searchPhotos({ q: i.q, perPage: 6, orientation: 'horizontal' });
       const p = r.hits[0]; if (!p) return;
-      const th = $(`.card[data-id="${i.id}"] .thumb`);
-      th.innerHTML = `<img loading="lazy" decoding="async" src="${esc(safeUrl(p.preview))}" alt="${esc(i.name)} — ${esc(p.tags)}">`;
+      $(`.card[data-id="${i.id}"] .thumb`).innerHTML = `<img loading="lazy" decoding="async" src="${esc(safeUrl(p.preview))}" alt="${esc(i.name)} — ${esc(p.tags)}">`;
     } catch (e) { showNotice(e); }
   });
 }
@@ -45,6 +65,11 @@ function closeModal() { modal.hidden = true; modal.innerHTML = ''; document.body
 modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('.close')) closeModal(); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
 
+const figure = (p, extra = '') => `<figure data-id="${p.id}" ${extra}><img loading="lazy" decoding="async" src="${esc(safeUrl(p.preview))}" alt="${esc(p.tags)}">${heart(p)}<figcaption>${creditHtml(p)}</figcaption></figure>`;
+function bindFigures(box) {   // figure 를 누르면 크게 보기 (♥와 링크는 제외)
+  box.onclick = e => { if (e.target.closest('.heart, a')) return; const f = e.target.closest('figure'); if (f) { const p = registry.get(Number(f.dataset.id)); if (p) openPhoto(p); } };
+}
+
 async function openIcon(id) {
   const i = ICONS.find(x => x.id === id); if (!i) return;
   openModal(`
@@ -53,16 +78,70 @@ async function openIcon(id) {
       <p class="ddesc">${esc(i.desc)}</p>
       <ul class="dfacts">${i.facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
       <div class="dgallery" id="dg"><p class="loading">사진을 불러오는 중…</p></div>
+      ${hasSupabase ? '<div class="comments" id="cm"><h4>💬 한 줄 이야기</h4><div id="cmBody"><p class="loading">불러오는 중…</p></div></div>' : ''}
     </div>`);
+  if (hasSupabase) loadComments(i.id);
   try {
-    const r = await searchPhotos({ q: i.q, perPage: 9 });
+    const r = await searchPhotos({ q: i.q, perPage: 9 }); remember(r.hits);
     const g = $('#dg'); if (!g) return;
-    g.innerHTML = r.hits.length ? r.hits.map((p, k) => `<figure data-k="${k}"><img loading="lazy" decoding="async" src="${esc(safeUrl(p.preview))}" alt="${esc(i.name)} — ${esc(p.tags)}"><figcaption>${creditHtml(p)}</figcaption></figure>`).join('') : '<p class="loading">사진을 찾지 못했어요.</p>';
-    g.onclick = e => { const f = e.target.closest('figure'); if (f && !e.target.closest('a')) openPhoto(r.hits[+f.dataset.k]); };
+    g.innerHTML = r.hits.length ? r.hits.map(p => figure(p)).join('') : '<p class="loading">사진을 찾지 못했어요.</p>';
+    bindFigures(g);
   } catch (e) { showNotice(e); const g = $('#dg'); if (g) g.innerHTML = `<p class="loading">${esc(e.message)}</p>`; }
 }
 function openPhoto(p) {
-  openModal(`<figure class="lightbox"><img src="${esc(safeUrl(p.large))}" alt="${esc(p.tags)}"><figcaption>${creditHtml(p)} · <a href="${esc(safeUrl(p.page))}" target="_blank" rel="noopener noreferrer">원본 보기</a></figcaption></figure>`);
+  openModal(`<figure class="lightbox" data-id="${p.id}"><img src="${esc(safeUrl(p.large))}" alt="${esc(p.tags)}">${heart(p)}<figcaption>${creditHtml(p)} · <a href="${esc(safeUrl(p.page))}" target="_blank" rel="noopener noreferrer">원본 보기</a></figcaption></figure>`);
+}
+
+// ---------- 한 줄 이야기 (Supabase) ----------
+async function loadComments(iconId) {
+  const box = $('#cmBody'); if (!box) return;
+  try {
+    const list = await store.listComments(iconId);
+    const form = state.user
+      ? `<form class="cmform" id="cmForm"><input name="nick" maxlength="20" required placeholder="별명" value="${esc(localStorage.getItem('nick') || (state.user.email || '').split('@')[0])}"><input name="body" maxlength="200" required placeholder="이 상징에 대한 한 줄 이야기를 남겨 보세요 (200자)"><button class="btn primary" type="submit">등록</button></form>`
+      : '<p class="loading"><button class="btn ghost" id="cmLogin" type="button">로그인하고 한 줄 남기기</button></p>';
+    box.innerHTML = form + (list.length ? `<ul class="cmlist">${list.map(c => `<li><b>${esc(c.nickname)}</b> <small>${esc(new Date(c.created_at).toLocaleDateString('ko-KR'))}</small>${state.user && c.user_id === state.user.id ? ` <button class="cmdel" data-id="${c.id}" aria-label="삭제">삭제</button>` : ''}<p>${esc(c.body)}</p></li>`).join('')}</ul>` : '<p class="loading">아직 이야기가 없어요. 첫 번째 이야기를 남겨 보세요!</p>');
+    const f = $('#cmForm'); if (f) f.onsubmit = async ev => { ev.preventDefault(); const nick = f.nick.value.trim(), body = f.body.value.trim(); if (!nick || !body) return; f.querySelector('button').disabled = true;
+      try { localStorage.setItem('nick', nick); await store.addComment(iconId, nick, body); await loadComments(iconId); } catch (e) { alert('등록하지 못했어요: ' + e.message); f.querySelector('button').disabled = false; } };
+    const lg = $('#cmLogin'); if (lg) lg.onclick = () => openLogin('한 줄 이야기를 남기려면 로그인해 주세요.');
+    box.querySelectorAll('.cmdel').forEach(b => b.onclick = async () => { if (!confirm('이 글을 삭제할까요?')) return; try { await store.deleteComment(b.dataset.id); await loadComments(iconId); } catch (e) { alert('삭제하지 못했어요: ' + e.message); } });
+  } catch (e) { box.innerHTML = `<p class="loading">이야기를 불러오지 못했어요. (${esc(e.message)})</p>`; }
+}
+
+// ---------- 로그인 (Supabase Auth: 이메일 링크) ----------
+function openLogin(msg = '') {
+  openModal(`<div class="login"><h3>로그인</h3><p>${esc(msg || '이메일을 입력하면 로그인 링크를 보내 드려요. 비밀번호는 필요 없어요.')}</p>
+    <form id="loginForm"><input type="email" name="email" required placeholder="you@example.com" autocomplete="email"><button class="btn primary" type="submit">로그인 링크 받기</button></form><p class="loading" id="loginMsg"></p></div>`);
+  $('#loginForm').onsubmit = async e => {
+    e.preventDefault(); const btn = e.target.querySelector('button'), msgEl = $('#loginMsg'); btn.disabled = true; msgEl.textContent = '보내는 중…';
+    try { await store.sendMagicLink(e.target.email.value.trim()); msgEl.textContent = '✅ 메일을 보냈어요! 메일함에서 링크를 누르면 로그인돼요. (스팸함도 확인해 주세요)'; }
+    catch (err) { msgEl.textContent = '보내지 못했어요: ' + err.message; btn.disabled = false; }
+  };
+}
+function updateNav() {
+  const b = $('#authBtn'); b.hidden = !hasSupabase; $('#savedLink').hidden = !hasSupabase;
+  if (!hasSupabase) return;
+  if (state.user) { b.textContent = '로그아웃'; b.title = state.user.email || ''; b.onclick = async () => { await store.signOut(); }; }
+  else { b.textContent = '로그인'; b.title = ''; b.onclick = () => openLogin(); }
+}
+
+// ---------- 내 보관함 ----------
+function renderSaved() {
+  const sec = $('#saved'); sec.hidden = !hasSupabase; if (!hasSupabase) return;
+  const list = [...state.favs.values()]; remember(list);
+  $('#savedSub').textContent = state.user ? (list.length ? `${list.length}장을 저장했어요. 다시 ♥를 누르면 빼요.` : '아직 저장한 사진이 없어요. 사진의 ♥를 눌러 보세요.') : '로그인하면 마음에 드는 사진을 저장할 수 있어요.';
+  const g = $('#savedGrid'); g.innerHTML = list.map(p => figure(p, `style="aspect-ratio:${p.w || 4}/${p.h || 3}"`)).join(''); bindFigures(g);
+}
+async function refreshFavs() {
+  state.favs = new Map();
+  if (state.user) { try { (await store.listFavorites()).forEach(p => state.favs.set(p.id, p)); } catch (e) { console.warn('보관함을 불러오지 못했어요', e); } }
+  renderSaved(); paintHearts();
+}
+async function setUser(u) { const changed = (state.user?.id || null) !== (u?.id || null); state.user = u; updateNav(); if (changed) { await refreshFavs(); if (u && !modal.hidden && $('.login')) closeModal(); } }
+async function initAuth() {
+  updateNav(); renderSaved(); if (!hasSupabase) return;
+  const { data } = await supabase.auth.getSession(); await setUser(data.session?.user ?? null);
+  supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
 }
 
 // ---------- 갤러리(검색) ----------
@@ -71,15 +150,15 @@ $('#chips').innerHTML = CHIPS.map(([label, q]) => `<button class="chip" data-q="
 $('#chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { $('#searchInput').value = b.textContent; runSearch(b.dataset.q); } });
 $('#searchForm').addEventListener('submit', e => { e.preventDefault(); const v = $('#searchInput').value.trim(); if (v) runSearch(/jeju|제주/i.test(v) ? v : v + ' jeju'); });
 $('#moreBtn').addEventListener('click', () => loadPage(gal.page + 1));
-$('#masonry').addEventListener('click', e => { const f = e.target.closest('figure'); if (f && !e.target.closest('a')) openPhoto(gal.hits[+f.dataset.k]); });
+bindFigures($('#masonry'));
 
 function runSearch(q) { gal.q = q; gal.page = 1; gal.hits = []; $('#masonry').innerHTML = '<p class="loading">불러오는 중…</p>'; loadPage(1); }
 async function loadPage(page) {
   if (gal.busy) return; gal.busy = true; $('#moreBtn').disabled = true;
   try {
     const r = await searchPhotos({ q: gal.q, page, perPage: 16 });
-    gal.page = page; const start = gal.hits.length; gal.hits.push(...r.hits); gal.total = r.totalHits ?? 0;
-    const html = r.hits.map((p, k) => `<figure data-k="${start + k}" style="aspect-ratio:${p.w || 4}/${p.h || 3}"><img loading="lazy" decoding="async" src="${esc(safeUrl(p.preview))}" alt="${esc(p.tags)}"><figcaption>${creditHtml(p)}</figcaption></figure>`).join('');
+    gal.page = page; gal.hits.push(...r.hits); gal.total = r.totalHits ?? 0; remember(r.hits);
+    const html = r.hits.map(p => figure(p, `style="aspect-ratio:${p.w || 4}/${p.h || 3}"`)).join('');
     if (page === 1) $('#masonry').innerHTML = html || '<p class="loading">검색 결과가 없어요. 다른 단어로 찾아볼까요?</p>'; else $('#masonry').insertAdjacentHTML('beforeend', html);
     $('#moreBtn').hidden = !(gal.hits.length < gal.total && page < 20);
   } catch (e) { showNotice(e); if (page === 1) $('#masonry').innerHTML = `<p class="loading">${esc(e.message)}</p>`; }
@@ -100,4 +179,4 @@ async function loadHero() {
 // ---------- 상단바 스크롤 효과 ----------
 const nav = $('#nav'); const onScroll = () => nav.classList.toggle('solid', scrollY > 40); addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
-renderIcons(); loadHero(); runSearch('jeju island');
+initAuth(); renderIcons(); loadHero(); runSearch('jeju island');

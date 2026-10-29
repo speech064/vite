@@ -21,6 +21,8 @@
       <a href="#icons">제주 IP</a>
       <a href="#facts">알아보기</a>
       <a href="#gallery">사진 갤러리</a>
+      <a href="#saved" id="savedLink" hidden>내 보관함</a>
+      <button class="authbtn" id="authBtn" hidden>로그인</button>
     </nav>
   </header>
 
@@ -39,7 +41,7 @@
     <div class="notice" id="notice" hidden></div>
 
     <section class="section" id="icons">
-      <div class="head"><p class="eyebrow dark">제주 IP 8선</p><h2>제주를 대표하는 얼굴들</h2><p class="sub">카드를 누르면 이야기와 사진을 더 볼 수 있어요.</p></div>
+      <div class="head"><p class="eyebrow dark">제주 IP 8선</p><h2>제주를 대표하는 얼굴들</h2><p class="sub">카드를 누르면 이야기와 사진, 한 줄 이야기를 볼 수 있어요.</p></div>
       <div class="grid" id="iconGrid"></div>
     </section>
 
@@ -49,7 +51,7 @@
     </section>
 
     <section class="section" id="gallery">
-      <div class="head"><p class="eyebrow dark">사진 갤러리</p><h2>제주를 검색해 보세요</h2><p class="sub">Pixabay의 사진을 불러와요. 사진을 누르면 크게 볼 수 있어요.</p></div>
+      <div class="head"><p class="eyebrow dark">사진 갤러리</p><h2>제주를 검색해 보세요</h2><p class="sub">Pixabay의 사진을 불러와요. 사진을 누르면 크게 볼 수 있고, ♥를 누르면 내 보관함에 저장돼요.</p></div>
       <form class="search" id="searchForm" role="search">
         <input id="searchInput" type="search" placeholder="예: oreum, 성산일출봉, camellia" aria-label="사진 검색어" autocomplete="off">
         <button class="btn primary" type="submit">검색</button>
@@ -57,6 +59,11 @@
       <div class="chips" id="chips"></div>
       <div class="masonry" id="masonry"></div>
       <div class="more"><button class="btn ghost" id="moreBtn" hidden>더 보기</button></div>
+    </section>
+
+    <section class="section tint" id="saved" hidden>
+      <div class="head"><p class="eyebrow dark">내 보관함</p><h2>마음에 든 제주 사진</h2><p class="sub" id="savedSub"></p></div>
+      <div class="masonry" id="savedGrid"></div>
     </section>
   </main>
 
